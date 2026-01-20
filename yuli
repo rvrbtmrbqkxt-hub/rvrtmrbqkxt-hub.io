@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>闯关答题网站</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        body {
+            background-color: #f5f5f5;
+            transition: all 0.3s ease;
+        }
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        .question-area {
+            margin-bottom: 30px;
+        }
+        .question-title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .options-area {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .option-btn {
+            padding: 15px 20px;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .option-btn:hover {
+            background-color: #45a049;
+        }
+        .option-btn.disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result-area {
+            margin-top: 20px;
+            font-size: 20px;
+            display: none;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .result-correct {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .result-wrong {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        .error-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            cursor: pointer;
+        }
+        .error-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .admin-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+        }
+        .admin-btn {
+            padding: 10px 15px;
+            background-color: #ff9800;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .admin-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+        .admin-content {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .form-group textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .close-btn, .save-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .close-btn {
+            background-color: #f44336;
+            color: #fff;
+        }
+        .save-btn {
+            background-color: #2196F3;
+            color: #fff;
+        }
+        .next-btn {
+            margin-top: 20px;
+            padding: 12px 25px;
+            background-color: #2196F3;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- 管理员面板按钮 -->
+    <div class="admin-panel">
+        <button class="admin-btn" id="openAdminBtn">编辑题目</button>
+    </div>
+
+    <!-- 答题区域 -->
+    <div class="container" id="quizContainer">
+        <div class="question-area" id="questionArea">
+            <h2 class="question-title" id="questionTitle">加载题目中...</h2>
+            <div class="options-area" id="optionsArea"></div>
+        </div>
+        <div class="result-area" id="resultArea"></div>
+        <button class="next-btn" id="nextBtn">下一题</button>
+    </div>
+
+    <!-- 错误提示层（包含您提供的恐怖图片） -->
+    <div class="error-overlay" id="errorOverlay">
+        <img src="https://i.imgur.com/您提供的图片实际可访问链接（或替换为base64编码内容）" alt="恐怖图片" class="error-img" id="errorImg">
+    </div>
+
+    <!-- 管理员编辑模态框 -->
+    <div class="admin-modal" id="adminModal">
+        <div class="admin-content">
+            <h3>编辑题目库</h3>
+            <form id="adminForm">
+                <div class="form-group">
+                    <label for="questionIndex">选择题目（新增则留空）</label>
+                    <input type="number" id="questionIndex" placeholder="从1开始计数" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="questionText">题目内容</label>
+                    <textarea id="questionText" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="option1">选项1</label>
+                    <input type="text" id="option1" required>
+                </div>
+                <div class="form-group">
+                    <label for="option2">选项2</label>
+                    <input type="text" id="option2" required>
+                </div>
+                <div class="form-group">
+                    <label for="option3">选项3</label>
+                    <input type="text" id="option3" required>
+                </div>
+                <div class="form-group">
+                    <label for="option4">选项4</label>
+                    <input type="text" id="option4" required>
+                </div>
+                <div class="form-group">
+                    <label for="correctOption">正确选项（1-4）</label>
+                    <select id="correctOption" required>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="horrorImgUrl">恐怖图片URL（默认使用您提供的）</label>
+                    <input type="url" id="horrorImgUrl" value="https://i.imgur.com/您提供的图片实际可访问链接（或替换为base64编码内容）">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="close-btn" id="closeAdminBtn">关闭</button>
+                    <button type="submit" class="save-btn">保存题目</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 初始化题目数据（localStorage持久化）
+        let quizDataList = JSON.parse(localStorage.getItem('quizDataList')) || [
+            {
+                question: "测试题目：1+1等于几？",
+                options: ["1", "2", "3", "4"],
+                correct: 2,
+                horrorImg: "https://i.imgur.com/您提供的图片实际可访问链接（或替换为base64编码内容）"
+            }
+        ];
+        let currentQuestionIndex = 0;
+        let isAnswered = false;
+
+        // DOM元素
+        const questionTitle = document.getElementById('questionTitle');
+        const optionsArea = document.getElementById('optionsArea');
+        const resultArea = document.getElementById('resultArea');
+        const nextBtn = document.getElementById('nextBtn');
+        const errorOverlay = document.getElementById('errorOverlay');
+        const errorImg = document.getElementById('errorImg');
+        const openAdminBtn = document.getElementById('openAdminBtn');
+        const adminModal = document.getElementById('adminModal');
+        const closeAdminBtn = document.getElementById('closeAdminBtn');
+        const adminForm = document.getElementById('adminForm');
+
+        // 加载当前题目
+        function loadCurrentQuestion() {
+            const currentData = quizDataList[currentQuestionIndex];
+            questionTitle.textContent = `${currentQuestionIndex + 1}. ${currentData.question}`;
+            optionsArea.innerHTML = '';
+            resultArea.style.display = 'none';
+            nextBtn.style.display = 'none';
+            isAnswered = false;
+
+            currentData.options.forEach((option, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.textContent = `${index + 1}. ${option}`;
+                btn.dataset.index = index + 1;
+                btn.addEventListener('click', handleOptionClick);
+                optionsArea.appendChild(btn);
+            });
+
+            // 更新恐怖图片链接
+            errorImg.src = currentData.horrorImg;
+        }
+
+        // 处理选项点击
+        function handleOptionClick(e) {
+            if (isAnswered) return;
+            isAnswered = true;
+
+            const selectedIndex = parseInt(e.target.dataset.index);
+            const currentData = quizDataList[currentQuestionIndex];
+            const allOptions = document.querySelectorAll('.option-btn');
+
+            if (selectedIndex === currentData.correct) {
+                // 答对
+                resultArea.textContent = '回答正确！';
+                resultArea.className = 'result-area result-correct';
+                nextBtn.style.display = 'block';
+                // 所有选项保留，标记正确
+                allOptions.forEach(btn => {
+                    if (parseInt(btn.dataset.index) === currentData.correct) {
+                        btn.style.backgroundColor = '#3c763d';
+                    }
+                    btn.disabled = true;
+                    btn.classList.add('disabled');
+                });
+            } else {
+                // 答错
+                resultArea.textContent = '回答错误！';
+                resultArea.className = 'result-area result-wrong';
+                // 显示恐怖图片
+                errorOverlay.style.display = 'flex';
+                // 移除错误选项，禁用其他
+                allOptions.forEach(btn => {
+                    if (parseInt(btn.dataset.index) === selectedIndex) {
+                        btn.remove();
+                    } else {
+                        btn.disabled = true;
+                        btn.classList.add('disabled');
+                    }
+                });
+            }
+            resultArea.style.display = 'block';
+        }
+
+        // 关闭错误层
+        errorOverlay.addEventListener('click', () => {
+            errorOverlay.style.display = 'none';
+        });
+
+        // 下一题
+        nextBtn.addEventListener('click', () => {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < quizDataList.length) {
+                loadCurrentQuestion();
+            } else {
+                questionTitle.textContent = '恭喜您！所有题目已通关！';
+                optionsArea.innerHTML = '';
+                resultArea.style.display = 'none';
+                nextBtn.style.display = 'none';
+            }
+        });
+
+        // 管理员面板
+        openAdminBtn.addEventListener('click', () => {
+            adminModal.style.display = 'flex';
+            adminForm.reset();
+            document.getElementById('questionIndex').value = '';
+        });
+
+        closeAdminBtn.addEventListener('click', () => {
+            adminModal.style.display = 'none';
+        });
+
+        adminForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const index = parseInt(document.getElementById('questionIndex').value) - 1 || quizDataList.length;
+            const newQuestion = {
+                question: document.getElementById('questionText').value,
+                options: [
+                    document.getElementById('option1').value,
+                    document.getElementById('option2').value,
+                    document.getElementById('option3').value,
+                    document.getElementById('option4').value
+                ],
+                correct: parseInt(document.getElementById('correctOption').value),
+                horrorImg: document.getElementById('horrorImgUrl').value
+            };
+
+            if (index >= 0 && index < quizDataList.length) {
+                quizDataList[index] = newQuestion;
+            } else {
+                quizDataList.push(newQuestion);
+            }
+
+            localStorage.setItem('quizDataList', JSON.stringify(quizDataList));
+            adminModal.style.display = 'none';
+            currentQuestionIndex = 0;
+            loadCurrentQuestion();
+        });
+
+        // 初始加载
+        loadCurrentQuestion();
+    </script>
+</body>
+</html>
